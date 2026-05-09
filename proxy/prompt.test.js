@@ -13,10 +13,10 @@ describe('MODE_CONFIG', () => {
     assert.equal(MODE_CONFIG.quick.maxTokens.noSearch, 384);
     assert.equal(MODE_CONFIG.quick.maxTokens.withSearch, 1536);
   });
-  it('standard is Sonnet, no search by default, tighter token budget', () => {
+  it('standard is Sonnet, search by default, tighter no-search token budget', () => {
     assert.equal(MODE_CONFIG.standard.model, 'claude-sonnet-4-6');
     assert.equal(MODE_CONFIG.standard.maxClaims, 4);
-    assert.equal(MODE_CONFIG.standard.defaultSearch, false);
+    assert.equal(MODE_CONFIG.standard.defaultSearch, true);
     assert.equal(MODE_CONFIG.standard.maxTokens.noSearch, 512);
     assert.equal(MODE_CONFIG.standard.maxTokens.withSearch, 3072);
   });
@@ -42,13 +42,16 @@ describe('resolveModeConfig(mode, searchOverride)', () => {
     assert.equal(r.maxSources, 1);
     assert.deepEqual(r.tools, ['WebSearch']);
   });
-  it('standard without override: tighter no-search budget', () => {
+  it('standard without override now defaults to search-on', () => {
     const r = resolveModeConfig('standard');
-    assert.equal(r.maxTokens, 512);
-    assert.deepEqual(r.tools, []);
+    assert.equal(r.searchAvailable, true);
+    assert.equal(r.maxTokens, 3072);
+    assert.equal(r.maxSources, 2);
+    assert.deepEqual(r.tools, ['WebSearch']);
   });
-  it('standard with override: full token budget + search', () => {
+  it('standard with override: same as default (search-on)', () => {
     const r = resolveModeConfig('standard', true);
+    assert.equal(r.searchAvailable, true);
     assert.equal(r.maxTokens, 3072);
     assert.equal(r.maxSources, 2);
     assert.deepEqual(r.tools, ['WebSearch']);
@@ -81,11 +84,12 @@ describe('buildSystemPrompt — no-search variant (claim-extraction only)', () =
     assert.doesNotMatch(p, /ANTI-FALSE-BALANCE/);
     assert.doesNotMatch(p, /ROUTE OPINIONS TO STEEL-MAN/);
   });
-  it('standard (no search) — same compact prompt, only claim count differs', () => {
+  it('standard now defaults to full prompt (search-on by default)', () => {
     const p = buildSystemPrompt('standard');
-    assert.match(p, /CLAIM EXTRACTION ONLY/);
+    assert.match(p, /use the web_search tool/);
     assert.match(p, /at most 4 distinct claims/);
-    assert.doesNotMatch(p, /web_search tool/);
+    assert.match(p, /at most 2 sources? per claim/);
+    assert.doesNotMatch(p, /CLAIM EXTRACTION ONLY/);
   });
 });
 
@@ -98,7 +102,7 @@ describe('buildSystemPrompt — full variant (search-enabled)', () => {
     assert.match(p, /ANTI-FALSE-BALANCE/);
     assert.match(p, /ROUTE OPINIONS TO STEEL-MAN/);
   });
-  it('standard (with search) — full prompt, 4 claims, 2 sources', () => {
+  it('standard (search redundantly forced via override) — same full prompt', () => {
     const p = buildSystemPrompt('standard', true);
     assert.match(p, /use the web_search tool/);
     assert.match(p, /at most 4 distinct claims/);

@@ -9,7 +9,7 @@ export const MODE_CONFIG = {
   standard: {
     model: 'claude-sonnet-4-6',
     maxClaims: 4,
-    defaultSearch: false,
+    defaultSearch: true,
     maxTokens: { noSearch: 512, withSearch: 3072 },
     maxSourcesWithSearch: 2,
   },
