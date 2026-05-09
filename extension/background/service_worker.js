@@ -1,4 +1,4 @@
-const PROXY_URL = 'http://localhost:9999/analyze'; // TODO Phase 2: switch to 3001
+const PROXY_URL = 'http://localhost:3001/analyze';
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'analyze') {
