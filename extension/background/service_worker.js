@@ -4,7 +4,7 @@ let activeAbortController = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'analyze') {
-    handleAnalyze(msg.input)
+    handleAnalyze(msg.input, msg.mode)
       .then(data => sendResponse({ ok: true, data }))
       .catch(err => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;
@@ -34,11 +34,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-async function handleAnalyze(input) {
+async function handleAnalyze(input, mode) {
   const requestedAt = Date.now();
-  await chrome.storage.session.set({ inFlight: { input, startedAt: requestedAt } });
+  await chrome.storage.session.set({ inFlight: { input, mode, startedAt: requestedAt } });
 
-  // Abort any prior in-flight request before starting new one.
   if (activeAbortController) {
     try { activeAbortController.abort(); } catch { /* ignore */ }
   }
@@ -51,7 +50,7 @@ async function handleAnalyze(input) {
       res = await fetch(PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify({ input, mode }),
         signal,
       });
     } catch (netErr) {
@@ -68,12 +67,15 @@ async function handleAnalyze(input) {
       } catch { /* response body not JSON; fall back to status */ }
       throw new Error(msg);
     }
-    const data = await res.json();
+    const body = await res.json();
+    // Unwrap the new {mode, data} envelope. Backward-compat: handle older proxies that
+    // returned just the JSON directly (no wrapping).
+    const data = (body && typeof body === 'object' && 'data' in body) ? body.data : body;
     if (!data || typeof data !== 'object' || !Array.isArray(data.claims)) {
       throw new Error('Proxy returned unexpected response shape (missing claims array).');
     }
     await chrome.storage.session.set({
-      lastResult: { data, requestedAt, completedAt: Date.now(), input }
+      lastResult: { data, requestedAt, completedAt: Date.now(), input, mode }
     });
     return data;
   } finally {
