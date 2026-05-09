@@ -31,6 +31,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  req.setEncoding('utf8');
   let body = '';
   req.on('data', chunk => { body += chunk; });
   req.on('end', async () => {
@@ -81,9 +82,12 @@ function serverError(res, msg) {
 
 // Startup smoke: verify the SDK + OAuth path before accepting traffic.
 // Lightweight SDK ping — no web_search, tiny output. Fails fast if auth is stale.
+const STARTUP_TIMEOUT_MS = 30_000;
+
 async function startupCheck() {
   console.log('startup: pinging Claude to verify SDK + OAuth...');
-  try {
+  let timeoutId;
+  const ping = (async () => {
     let count = 0;
     for await (const _ of query({
       prompt: 'Reply with the single word: ok',
@@ -91,6 +95,18 @@ async function startupCheck() {
     })) {
       count++;
     }
+    return count;
+  })();
+  try {
+    const count = await Promise.race([
+      ping.finally(() => clearTimeout(timeoutId)),
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error(`startupCheck timed out after ${STARTUP_TIMEOUT_MS}ms — SDK may be hung`)),
+          STARTUP_TIMEOUT_MS
+        );
+      }),
+    ]);
     console.log(`startup: OK (${count} events)`);
   } catch (err) {
     console.error('startup: FAILED —', err.message);

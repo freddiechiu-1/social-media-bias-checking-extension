@@ -13,8 +13,7 @@ export function validate(raw) {
     throw new Error('validator: input must be a non-null object');
   }
 
-  const required = ['tldr', 'claims', 'evidence', 'steelman', 'couldnt_verify', 'how_to_verify'];
-  for (const k of required) {
+  for (const k of ALLOWED_TOP_LEVEL) {
     if (!(k in raw)) throw new Error(`validator: missing required field "${k}"`);
   }
 

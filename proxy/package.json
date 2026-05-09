@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test-prompt": "node test_prompt.js",
-    "test": "mocha validator.test.js"
+    "test": "mocha \"*.test.js\""
   },
   "engines": {
     "node": ">=20"
