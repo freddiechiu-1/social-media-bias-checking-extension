@@ -1480,7 +1480,11 @@ git commit -m "proxy: system prompt with no-verdict + anti-false-balance rules"
 
 - [ ] **Step 1: Write analyze.js**
 
-Adapt the SDK invocation based on Task 0.1 findings. Best-guess:
+SDK invocation pattern below was confirmed at kickoff (Task 0.1 spike):
+- Package: `@anthropic-ai/claude-agent-sdk`
+- Tool name: `WebSearch` (PascalCase)
+- Pre-grant via `allowedTools: ['WebSearch']` (otherwise SDK gates per-call and silently fails in headless mode)
+- Final assistant text appears in the `result` event's `.result` field
 
 ```javascript
 import { query } from '@anthropic-ai/claude-agent-sdk';
@@ -1519,11 +1523,8 @@ async function runAnalysis(input) {
       systemPrompt: SYSTEM_PROMPT,
       model: 'claude-opus-4-7',
       maxTokens: 4096,
-      // ⚠ REQUIRED: enable web_search. Without this, evidence is empty and the demo fails.
-      // Best-guess SDK options (try in order, verify against Task 0.1 SDK output):
-      //   allowedTools: ['web_search'],
-      //   tools: [{ type: 'web_search_20250305' }],
-      //   tools: ['web_search'],
+      // Pre-allow WebSearch so the SDK doesn't gate per-call.
+      allowedTools: ['WebSearch'],
     }
   })) {
     events.push(event);
@@ -1536,15 +1537,21 @@ async function runAnalysis(input) {
 }
 
 function extractFinalText(events) {
-  // Find the last assistant text event. Adapt to SDK event shape.
-  const textEvents = events.filter(e =>
-    (e.type === 'text' || e.type === 'assistant_message') && typeof (e.text || e.content) === 'string'
-  );
-  if (!textEvents.length) {
-    throw new Error('No text in SDK events. Inspect events:\n' + JSON.stringify(events.slice(-3), null, 2));
+  // Confirmed at kickoff: the SDK emits a final `result` event with the assistant's
+  // last text in `.result`. Fall back to scanning assistant message text blocks if
+  // the result event is missing (e.g. on early termination).
+  const resultEvent = events.find(e => e.type === 'result');
+  if (resultEvent && typeof resultEvent.result === 'string') {
+    return resultEvent.result;
   }
-  const last = textEvents[textEvents.length - 1];
-  return last.text || last.content;
+  const assistantTexts = events
+    .filter(e => e.type === 'assistant')
+    .flatMap(e => (e.message?.content || []).filter(c => c.type === 'text'))
+    .map(c => c.text);
+  if (assistantTexts.length === 0) {
+    throw new Error('No assistant text in SDK events. Inspect events:\n' + JSON.stringify(events.slice(-3), null, 2));
+  }
+  return assistantTexts[assistantTexts.length - 1];
 }
 
 function parseJson(text) {
