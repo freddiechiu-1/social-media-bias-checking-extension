@@ -1,0 +1,45 @@
+{
+  "tldr": "The post claims that 80% of last winter's flu hospitalizations were among unvaccinated people, and argues this proves the flu shot's effectiveness.",
+  "claims": [
+    {
+      "id": "c1",
+      "text": "80% of last winter's flu hospitalizations were among people who hadn't gotten the flu shot.",
+      "type": "factual"
+    },
+    {
+      "id": "c2",
+      "text": "This proves the flu shot's effectiveness.",
+      "type": "opinion"
+    }
+  ],
+  "evidence": [
+    {
+      "claim_id": "c1",
+      "sources": [
+        {
+          "url": "https://www.cdc.gov/flu/spotlights/example.htm",
+          "title": "CDC FluView: 2024-25 Season Update",
+          "summary": "CDC reports the share of flu hospitalizations among unvaccinated adults during the 2024-25 season."
+        }
+      ],
+      "synthesis": "CDC's FluView reports a hospitalization breakdown by vaccination status. The 80% figure is in the right ballpark for some demographic slices but not the headline number — the post may be selecting a specific cohort.",
+      "linked_source_check": null
+    }
+  ],
+  "steelman": [
+    {
+      "claim_id": "c2",
+      "counter": "Hospitalization rates by vaccination status alone don't establish causal effectiveness — they reflect a mix of vaccine effect, behavioral differences between vaccinated and unvaccinated populations, and exposure variation. A thoughtful critic would point to randomized or test-negative-design studies, not raw hospitalization shares.",
+      "factually_wrong_redirect": null
+    }
+  ],
+  "couldnt_verify": [
+    "I couldn't find the exact source the post is citing — the 80% figure could be from a specific age cohort or risk group, not the overall CDC headline.",
+    "Establishing 'effectiveness' requires study design beyond observational hospitalization shares; I don't have access to the underlying data."
+  ],
+  "how_to_verify": [
+    "Check CDC FluView (cdc.gov/flu/weekly) for the exact metric the post is citing — note the cohort and time range.",
+    "For effectiveness specifically, look for test-negative-design studies in journals like NEJM or CDC's MMWR — single statistics rarely prove causal claims.",
+    "Watch for cohort-narrowing in citations: 'X% of hospitalizations' may exclude age groups, regions, or seasons that change the picture."
+  ]
+}
