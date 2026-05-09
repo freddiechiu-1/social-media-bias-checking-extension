@@ -121,9 +121,9 @@ function setEvidence(key, evidence, claims) {
 
     if (Array.isArray(e.sources) && e.sources.length) {
       for (const s of e.sources) {
-        const link = document.createElement('div');
-        link.className = 'source-link';
-        if (typeof s.url === 'string' && typeof s.title === 'string') {
+        if (s && typeof s.url === 'string' && /^https?:/i.test(s.url) && typeof s.title === 'string') {
+          const link = document.createElement('div');
+          link.className = 'source-link';
           link.innerHTML = `<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`;
           if (typeof s.summary === 'string') {
             const sum = document.createElement('div');
@@ -132,8 +132,8 @@ function setEvidence(key, evidence, claims) {
             sum.textContent = s.summary;
             link.appendChild(sum);
           }
+          block.appendChild(link);
         }
-        block.appendChild(link);
       }
     }
 
@@ -197,5 +197,6 @@ function escapeHtml(s) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
