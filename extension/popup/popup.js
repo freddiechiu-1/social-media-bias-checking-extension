@@ -29,10 +29,23 @@ if (isDetached) {
   });
 }
 
+document.getElementById('inflight-cancel').addEventListener('click', async () => {
+  await chrome.runtime.sendMessage({ type: 'cancel' });
+  hideInFlight();
+});
+
 // On open: restore cached result OR show in-flight banner.
+const STALE_INFLIGHT_MS = 5 * 60 * 1000; // 5 min — longer than proxy's 180s timeout + slack
+
 (async () => {
-  const cached = await chrome.runtime.sendMessage({ type: 'getCachedResult' });
-  const inFlight = await chrome.runtime.sendMessage({ type: 'getInFlight' });
+  let inFlight = await chrome.runtime.sendMessage({ type: 'getInFlight' });
+
+  // Stale-detection: if the marker is older than the proxy could reasonably take,
+  // the worker that owned it is dead. Clear and treat as no-in-flight.
+  if (inFlight && Date.now() - inFlight.startedAt > STALE_INFLIGHT_MS) {
+    await chrome.runtime.sendMessage({ type: 'cancel' });
+    inFlight = null;
+  }
 
   if (inFlight) {
     input.value = inFlight.input || '';
@@ -40,6 +53,8 @@ if (isDetached) {
     setupInFlightListener();
     return;
   }
+
+  const cached = await chrome.runtime.sendMessage({ type: 'getCachedResult' });
   if (cached && Date.now() - cached.completedAt < CACHE_TTL_MS) {
     input.value = cached.input || '';
     showResult(cached.data);
@@ -106,7 +121,8 @@ function hideUrlHint() {
 }
 
 function showInFlight() {
-  inflightEl.textContent = 'Analysis is still running in the background — will display when ready…';
+  document.getElementById('inflight-text').textContent =
+    'Analysis is still running in the background — will display when ready…';
   inflightEl.classList.remove('hidden');
   inflightEl.classList.add('info');
   submitBtn.disabled = true;
@@ -114,7 +130,7 @@ function showInFlight() {
 function hideInFlight() {
   inflightEl.classList.add('hidden');
   inflightEl.classList.remove('info');
-  inflightEl.textContent = '';
+  document.getElementById('inflight-text').textContent = '';
   submitBtn.disabled = false;
 }
 

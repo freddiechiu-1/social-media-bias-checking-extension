@@ -1,5 +1,7 @@
 const PROXY_URL = 'http://localhost:3001/analyze';
 
+let activeAbortController = null;
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'analyze') {
     handleAnalyze(msg.input)
@@ -21,20 +23,41 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (msg.type === 'cancel') {
+    if (activeAbortController) {
+      try { activeAbortController.abort(); } catch { /* ignore */ }
+      activeAbortController = null;
+    }
+    chrome.storage.session.remove('inFlight').then(() => sendResponse(true));
+    return true;
+  }
 });
 
 async function handleAnalyze(input) {
   const requestedAt = Date.now();
   await chrome.storage.session.set({ inFlight: { input, startedAt: requestedAt } });
+
+  // Abort any prior in-flight request before starting new one.
+  if (activeAbortController) {
+    try { activeAbortController.abort(); } catch { /* ignore */ }
+  }
+  activeAbortController = new AbortController();
+  const signal = activeAbortController.signal;
+
   try {
     let res;
     try {
       res = await fetch(PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input })
+        body: JSON.stringify({ input }),
+        signal,
       });
     } catch (netErr) {
+      if (netErr.name === 'AbortError') {
+        throw new Error('Analysis cancelled');
+      }
       throw new Error(`Couldn't reach the proxy at ${PROXY_URL}. Is it running? (${netErr.message})`);
     }
     if (!res.ok) {
@@ -54,6 +77,9 @@ async function handleAnalyze(input) {
     });
     return data;
   } finally {
+    if (activeAbortController?.signal === signal) {
+      activeAbortController = null;
+    }
     await chrome.storage.session.remove('inFlight');
   }
 }

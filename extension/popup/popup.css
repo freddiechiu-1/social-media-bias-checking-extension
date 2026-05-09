@@ -112,3 +112,17 @@ header { position: relative; }
 #popout:hover { background: #f0f0f0; color: #1a1a1a; }
 
 .status.info { background: #e6f0ff; color: #1a3a8a; }
+
+#inflight-banner { display: flex; gap: 8px; align-items: center; }
+#inflight-banner.hidden { display: none; }
+#inflight-text { flex: 1; }
+#inflight-cancel {
+  padding: 2px 10px;
+  background: white;
+  color: #1a3a8a;
+  border: 1px solid #1a3a8a;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+}
+#inflight-cancel:hover { background: #1a3a8a; color: white; }
