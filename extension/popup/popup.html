@@ -12,6 +12,12 @@
       <p class="tagline">A footnote on what you're reading.</p>
     </header>
 
+    <div id="mode-control" class="mode-control" role="radiogroup" aria-label="Analysis mode">
+      <button type="button" class="mode-pill" data-mode="quick" role="radio" aria-checked="false" title="~10s. Fewer claims, briefer evidence. Sonnet.">Quick</button>
+      <button type="button" class="mode-pill is-selected" data-mode="standard" role="radio" aria-checked="true" title="~20s. Balanced for everyday use. Sonnet.">Standard</button>
+      <button type="button" class="mode-pill" data-mode="deep" role="radio" aria-checked="false" title="~60–90s. Thorough, more sources. Opus reasoning.">Deep</button>
+    </div>
+
     <form id="form">
       <textarea id="input" placeholder="Paste the tweet text (URLs may not load — X requires auth)" rows="4"></textarea>
       <button id="submit" type="submit">Analyze</button>

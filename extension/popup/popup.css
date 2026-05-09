@@ -126,3 +126,27 @@ header { position: relative; }
   font-size: 11px;
 }
 #inflight-cancel:hover { background: #1a3a8a; color: white; }
+
+.mode-control {
+  display: flex;
+  margin-bottom: 10px;
+  gap: 4px;
+}
+.mode-pill {
+  flex: 1;
+  padding: 6px 4px;
+  background: white;
+  color: #1a1a1a;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+}
+.mode-pill:hover { background: #f0f0f0; }
+.mode-pill.is-selected {
+  background: #1a1a1a;
+  color: white;
+  border-color: #1a1a1a;
+}
+.mode-pill.is-selected:hover { background: #1a1a1a; }
