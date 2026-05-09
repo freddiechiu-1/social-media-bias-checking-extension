@@ -1,10 +1,10 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { SYSTEM_PROMPT, buildUserPrompt } from './prompt.js';
+import { MODE_CONFIG, buildSystemPrompt, buildUserPrompt } from './prompt.js';
 import { validate } from './validator.js';
 
 const REQUEST_TIMEOUT_MS = 180_000;
 
-export async function analyze(input) {
+export async function analyze(input, mode = 'standard') {
   if (typeof input !== 'string' || !input.trim()) {
     throw new Error('input must be a non-empty string');
   }
@@ -14,7 +14,7 @@ export async function analyze(input) {
 
   let timeoutId;
   return Promise.race([
-    runAnalysis(input).finally(() => clearTimeout(timeoutId)),
+    runAnalysis(input, mode).finally(() => clearTimeout(timeoutId)),
     new Promise((_, reject) => {
       timeoutId = setTimeout(
         () => reject(new Error(`analyze timed out after ${REQUEST_TIMEOUT_MS}ms`)),
@@ -24,17 +24,17 @@ export async function analyze(input) {
   ]);
 }
 
-async function runAnalysis(input) {
+async function runAnalysis(input, mode) {
+  const config = MODE_CONFIG[mode] || MODE_CONFIG.standard;
   const prompt = buildUserPrompt(input);
 
   const events = [];
   for await (const event of query({
     prompt,
     options: {
-      systemPrompt: SYSTEM_PROMPT,
-      model: 'claude-opus-4-7',
-      maxTokens: 4096,
-      // Pre-allow WebSearch so the SDK doesn't gate per-call.
+      systemPrompt: buildSystemPrompt(mode),
+      model: config.model,
+      maxTokens: config.maxTokens,
       allowedTools: ['WebSearch'],
     }
   })) {
@@ -48,9 +48,6 @@ async function runAnalysis(input) {
 }
 
 function extractFinalText(events) {
-  // The SDK emits a final `result` event with the assistant's last text in `.result`.
-  // Fall back to scanning assistant message text blocks if the result event is missing
-  // (e.g. on early termination).
   const resultEvent = events.find(e => e.type === 'result');
   if (resultEvent && typeof resultEvent.result === 'string') {
     return resultEvent.result;
@@ -66,7 +63,6 @@ function extractFinalText(events) {
 }
 
 function parseJson(text) {
-  // Be lenient: strip markdown fences if Claude added them anyway.
   let s = text.trim();
   if (s.startsWith('```')) {
     s = s.replace(/^```(json)?\s*/i, '').replace(/```\s*$/, '').trim();
