@@ -150,3 +150,32 @@ header { position: relative; }
   border-color: #1a1a1a;
 }
 .mode-pill.is-selected:hover { background: #1a1a1a; }
+
+#search-override-cta {
+  margin: 8px 0 14px 0;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  text-align: center;
+}
+#search-override-cta.hidden { display: none; }
+
+#search-override-btn {
+  padding: 8px 14px;
+  background: white;
+  color: #1a3a8a;
+  border: 1px solid #1a3a8a;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+}
+#search-override-btn:hover { background: #1a3a8a; color: white; }
+#search-override-btn:disabled { opacity: 0.5; cursor: wait; }
+
+.search-override-hint {
+  margin: 6px 0 0 0;
+  font-size: 11px;
+  color: #666;
+}

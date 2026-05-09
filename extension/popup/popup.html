@@ -13,9 +13,9 @@
     </header>
 
     <div id="mode-control" class="mode-control" role="radiogroup" aria-label="Analysis mode">
-      <button type="button" class="mode-pill" data-mode="quick" role="radio" aria-checked="false" title="~10s. Fewer claims, briefer evidence. Sonnet.">Quick</button>
-      <button type="button" class="mode-pill is-selected" data-mode="standard" role="radio" aria-checked="true" title="~20s. Balanced for everyday use. Sonnet.">Standard</button>
-      <button type="button" class="mode-pill" data-mode="deep" role="radio" aria-checked="false" title="~60–90s. Thorough, more sources. Opus reasoning.">Deep</button>
+      <button type="button" class="mode-pill" data-mode="quick" role="radio" aria-checked="false" title="~5–10s. At-a-glance read. Web search optional below.">Quick</button>
+      <button type="button" class="mode-pill is-selected" data-mode="standard" role="radio" aria-checked="true" title="~10–20s. Full analysis. Web search optional below.">Standard</button>
+      <button type="button" class="mode-pill" data-mode="deep" role="radio" aria-checked="false" title="~30–90s. Full analysis with web search. Sources cited inline.">Deep</button>
     </div>
 
     <form id="form">
@@ -56,6 +56,11 @@
         <div class="content"></div>
       </section>
     </main>
+
+    <div id="search-override-cta" class="hidden">
+      <button type="button" id="search-override-btn">🔍 Search the web for evidence (~20s)</button>
+      <p class="search-override-hint">Quick mode skips web search by default. Click to add real source citations.</p>
+    </div>
 
     <script src="render.js" type="module"></script>
     <script src="popup.js" type="module"></script>

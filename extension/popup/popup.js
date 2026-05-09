@@ -10,6 +10,8 @@ const resultEl = document.getElementById('result');
 const popoutBtn = document.getElementById('popout');
 const urlHintEl = document.getElementById('url-hint');
 const inflightEl = document.getElementById('inflight-banner');
+const searchCtaEl = document.getElementById('search-override-cta');
+const searchBtn = document.getElementById('search-override-btn');
 
 const TWEET_URL_RE = /^https?:\/\/(www\.)?(x|twitter)\.com\/[^\s]+$/i;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -17,8 +19,10 @@ const STALE_INFLIGHT_MS = 5 * 60 * 1000;
 const VALID_MODES = ['quick', 'standard', 'deep'];
 
 // Module-level mode state — single source of truth (see spec §7).
-// Initialized from storage in the on-open IIFE; updated synchronously on pill click.
 let currentMode = 'standard';
+
+// Tracks the input that produced the currently-displayed result, used by the search-override button to re-submit the same input.
+let lastAnalyzedInput = '';
 
 // ---------- Pop-out button ----------
 if (isDetached) {
@@ -50,7 +54,6 @@ document.querySelectorAll('.mode-pill').forEach(btn => {
     if (!VALID_MODES.includes(mode)) return;
     currentMode = mode;
     applyModeUI(mode);
-    // Persist; fire-and-forget. Storage write is not on the submit critical path.
     chrome.storage.local.set({ mode }).catch(() => {});
   });
 });
@@ -61,10 +64,32 @@ document.getElementById('inflight-cancel').addEventListener('click', async () =>
   hideInFlight();
 });
 
+// ---------- Search-override button ----------
+searchBtn.addEventListener('click', async () => {
+  if (!lastAnalyzedInput) return;
+  hideSearchCta();
+  setLoading(true);
+  clear();
+  resultEl.classList.add('hidden');
+
+  const response = await chrome.runtime.sendMessage({
+    type: 'analyze',
+    input: lastAnalyzedInput,
+    mode: currentMode,
+    searchOverride: true,
+  });
+
+  setLoading(false);
+
+  if (!response || !response.ok) {
+    showError(response?.error || 'Unknown error during search-augmented analysis.');
+    return;
+  }
+  showResult(response.data, response.searchAvailable);
+});
+
 // ---------- On-open: load mode + restore cached/in-flight state ----------
 (async () => {
-  // Load persisted mode (if any) and reflect in UI without flashing wrong pill.
-  // The HTML defaults to `standard` selected; we update only if a different valid mode is stored.
   try {
     const { mode: storedMode } = await chrome.storage.local.get('mode');
     if (typeof storedMode === 'string' && VALID_MODES.includes(storedMode)) {
@@ -73,8 +98,6 @@ document.getElementById('inflight-cancel').addEventListener('click', async () =>
     }
   } catch { /* storage failed — keep default 'standard' */ }
 
-  // Stale-detection: if the marker is older than the proxy could reasonably take,
-  // the worker that owned it is dead. Clear and treat as no-in-flight.
   let inFlight = await chrome.runtime.sendMessage({ type: 'getInFlight' });
   if (inFlight && Date.now() - inFlight.startedAt > STALE_INFLIGHT_MS) {
     await chrome.runtime.sendMessage({ type: 'cancel' });
@@ -83,6 +106,7 @@ document.getElementById('inflight-cancel').addEventListener('click', async () =>
 
   if (inFlight) {
     input.value = inFlight.input || '';
+    lastAnalyzedInput = inFlight.input || '';
     showInFlight();
     setupInFlightListener();
     return;
@@ -91,7 +115,8 @@ document.getElementById('inflight-cancel').addEventListener('click', async () =>
   const cached = await chrome.runtime.sendMessage({ type: 'getCachedResult' });
   if (cached && Date.now() - cached.completedAt < CACHE_TTL_MS) {
     input.value = cached.input || '';
-    showResult(cached.data);
+    lastAnalyzedInput = cached.input || '';
+    showResult(cached.data, cached.searchAvailable);
   }
 })();
 
@@ -102,6 +127,7 @@ form.addEventListener('submit', async (e) => {
   if (!text) return;
 
   hideUrlHint();
+  hideSearchCta();
   if (TWEET_URL_RE.test(text)) {
     showUrlHint('Heads up: tweet URLs often fail to load (X requires auth). Pasting the tweet text usually works better. Trying anyway…');
   }
@@ -110,7 +136,6 @@ form.addEventListener('submit', async (e) => {
   clear();
   resultEl.classList.add('hidden');
 
-  // Submit reads mode from the in-memory variable (synchronously up-to-date with last pill click).
   const response = await chrome.runtime.sendMessage({ type: 'analyze', input: text, mode: currentMode });
 
   setLoading(false);
@@ -120,11 +145,13 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  showResult(response.data);
+  lastAnalyzedInput = text;
+  showResult(response.data, response.searchAvailable);
 });
 
 function setLoading(on) {
   submitBtn.disabled = on;
+  searchBtn.disabled = on;
   if (on) {
     statusEl.textContent = 'Analyzing… web search can take 30–90 seconds.';
     statusEl.classList.remove('hidden', 'error');
@@ -139,10 +166,24 @@ function showError(msg) {
   statusEl.classList.add('error');
 }
 
-function showResult(data) {
+function showResult(data, searchAvailable) {
   hideInFlight();
   render(data);
   resultEl.classList.remove('hidden');
+  // Show the search-override CTA only when the result didn't include search
+  // (i.e., Quick or Standard without override). Hidden when search ran (Deep, or override-augmented).
+  if (searchAvailable === false) {
+    showSearchCta();
+  } else {
+    hideSearchCta();
+  }
+}
+
+function showSearchCta() {
+  searchCtaEl.classList.remove('hidden');
+}
+function hideSearchCta() {
+  searchCtaEl.classList.add('hidden');
 }
 
 function showUrlHint(msg) {
@@ -162,12 +203,15 @@ function showInFlight() {
   inflightEl.classList.remove('hidden');
   inflightEl.classList.add('info');
   submitBtn.disabled = true;
+  searchBtn.disabled = true;
+  hideSearchCta();
 }
 function hideInFlight() {
   inflightEl.classList.add('hidden');
   inflightEl.classList.remove('info');
   document.getElementById('inflight-text').textContent = '';
   submitBtn.disabled = false;
+  searchBtn.disabled = false;
 }
 
 function setupInFlightListener() {
@@ -176,7 +220,7 @@ function setupInFlightListener() {
     if ('lastResult' in changes && changes.lastResult.newValue) {
       const cached = changes.lastResult.newValue;
       if (cached.input === input.value) {
-        showResult(cached.data);
+        showResult(cached.data, cached.searchAvailable);
         chrome.storage.onChanged.removeListener(handler);
       }
     }

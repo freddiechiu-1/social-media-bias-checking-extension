@@ -4,8 +4,8 @@ let activeAbortController = null;
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'analyze') {
-    handleAnalyze(msg.input, msg.mode)
-      .then(data => sendResponse({ ok: true, data }))
+    handleAnalyze(msg.input, msg.mode, msg.searchOverride)
+      .then(({ data, searchAvailable }) => sendResponse({ ok: true, data, searchAvailable }))
       .catch(err => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;
   }
@@ -34,9 +34,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-async function handleAnalyze(input, mode) {
+async function handleAnalyze(input, mode, searchOverride = false) {
   const requestedAt = Date.now();
-  await chrome.storage.session.set({ inFlight: { input, mode, startedAt: requestedAt } });
+  await chrome.storage.session.set({ inFlight: { input, mode, searchOverride, startedAt: requestedAt } });
 
   if (activeAbortController) {
     try { activeAbortController.abort(); } catch { /* ignore */ }
@@ -50,7 +50,7 @@ async function handleAnalyze(input, mode) {
       res = await fetch(PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input, mode }),
+        body: JSON.stringify({ input, mode, searchOverride }),
         signal,
       });
     } catch (netErr) {
@@ -68,16 +68,16 @@ async function handleAnalyze(input, mode) {
       throw new Error(msg);
     }
     const body = await res.json();
-    // Unwrap the new {mode, data} envelope. Backward-compat: handle older proxies that
-    // returned just the JSON directly (no wrapping).
+    // Unwrap envelope. Forward-compat: handle older proxy returning just JSON.
     const data = (body && typeof body === 'object' && 'data' in body) ? body.data : body;
+    const searchAvailable = (body && typeof body === 'object' && 'searchAvailable' in body) ? !!body.searchAvailable : null;
     if (!data || typeof data !== 'object' || !Array.isArray(data.claims)) {
       throw new Error('Proxy returned unexpected response shape (missing claims array).');
     }
     await chrome.storage.session.set({
-      lastResult: { data, requestedAt, completedAt: Date.now(), input, mode }
+      lastResult: { data, searchAvailable, requestedAt, completedAt: Date.now(), input, mode }
     });
-    return data;
+    return { data, searchAvailable };
   } finally {
     if (activeAbortController?.signal === signal) {
       activeAbortController = null;
