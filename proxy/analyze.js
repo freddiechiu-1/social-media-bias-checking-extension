@@ -67,9 +67,38 @@ function parseJson(text) {
   if (s.startsWith('```')) {
     s = s.replace(/^```(json)?\s*/i, '').replace(/```\s*$/, '').trim();
   }
-  try {
-    return JSON.parse(s);
-  } catch (err) {
-    throw new Error(`Could not parse Claude output as JSON: ${err.message}\n\nRaw output:\n${text.slice(0, 500)}`);
+  // Try direct parse first (the typical case).
+  try { return JSON.parse(s); } catch { /* fall through to extraction */ }
+
+  // Extract the first balanced {...} block — handles JSON followed by trailing
+  // prose, multiple objects, etc.
+  const start = s.indexOf('{');
+  if (start === -1) {
+    throw new Error(`No JSON object found in Claude output. First 500 chars:\n${text.slice(0, 500)}`);
   }
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (escape) { escape = false; continue; }
+    if (inString) {
+      if (c === '\\') escape = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') { inString = true; continue; }
+    if (c === '{') depth++;
+    else if (c === '}') {
+      depth--;
+      if (depth === 0) {
+        const candidate = s.slice(start, i + 1);
+        try { return JSON.parse(candidate); }
+        catch (err) {
+          throw new Error(`Extracted a {...} block but it didn't parse: ${err.message}\n\nFirst 500 chars of extracted:\n${candidate.slice(0, 500)}`);
+        }
+      }
+    }
+  }
+  throw new Error(`Unterminated JSON object in Claude output. First 500 chars:\n${text.slice(0, 500)}`);
 }

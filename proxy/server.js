@@ -74,7 +74,10 @@ const server = http.createServer(async (req, res) => {
       ok(res, { mode, searchAvailable, data });
     } catch (err) {
       console.error(`[analyze error] ${err.message}`);
-      const isAuth = /auth|oauth|login|unauthor|401|403/i.test(err.message);
+      // Use word boundaries / specific terms so user-input words like "authorities"
+      // don't false-match. Real SDK auth errors say things like "Authentication failed",
+      // "Unauthorized", "401/403", or mention "claude login" / "OAuth".
+      const isAuth = /\bauthentication\b|\bunauthor(?:ized|ised)\b|\boauth\b|\b401\b|\b403\b|\bclaude login\b/i.test(err.message);
       serverError(res, isAuth
         ? `Authentication failed: ${err.message}. Try running 'claude login' again.`
         : err.message);
