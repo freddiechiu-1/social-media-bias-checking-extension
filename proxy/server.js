@@ -2,20 +2,20 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { analyze } from './analyze.js';
-import { MODE_CONFIG } from './prompt.js';
+import { MODE_CONFIG, resolveModeConfig } from './prompt.js';
 
 const PORT = 3001;
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const cache = new Map(); // hash(input + ':' + mode) -> { data, mode, completedAt }
+const cache = new Map();
 
 function resolveMode(raw) {
   if (typeof raw === 'string' && Object.prototype.hasOwnProperty.call(MODE_CONFIG, raw)) {
-    return { mode: raw, fellBack: false };
+    return { mode: raw };
   }
   if (raw !== undefined) {
     console.warn(`[mode] rejected invalid mode value ${JSON.stringify(raw)} — falling back to 'standard'`);
   }
-  return { mode: 'standard', fellBack: raw !== undefined };
+  return { mode: 'standard' };
 }
 
 const server = http.createServer(async (req, res) => {
@@ -55,18 +55,23 @@ const server = http.createServer(async (req, res) => {
     }
 
     const { mode } = resolveMode(parsed.mode);
-    const hash = crypto.createHash('sha256').update(`${input}:${mode}`).digest('hex');
+    const searchOverride = !!parsed.searchOverride;
+    const resolved = resolveModeConfig(mode, searchOverride);
+    const searchAvailable = resolved.searchAvailable;
+
+    // Cache key includes both mode AND search dimension
+    const hash = crypto.createHash('sha256').update(`${input}:${mode}:${searchAvailable ? 'search' : 'nosearch'}`).digest('hex');
     const cached = cache.get(hash);
     if (cached && Date.now() - cached.completedAt < CACHE_TTL_MS) {
-      console.log(`[cache hit] ${hash.slice(0, 8)} mode=${mode}`);
-      return ok(res, { mode: cached.mode, data: cached.data });
+      console.log(`[cache hit] ${hash.slice(0, 8)} mode=${mode} search=${searchAvailable}`);
+      return ok(res, { mode: cached.mode, searchAvailable: cached.searchAvailable, data: cached.data });
     }
 
-    console.log(`[analyze] ${hash.slice(0, 8)} mode=${mode} ${input.slice(0, 60)}...`);
+    console.log(`[analyze] ${hash.slice(0, 8)} mode=${mode} search=${searchAvailable} ${input.slice(0, 60)}...`);
     try {
-      const data = await analyze(input, mode);
-      cache.set(hash, { data, mode, completedAt: Date.now() });
-      ok(res, { mode, data });
+      const data = await analyze(input, mode, { searchOverride });
+      cache.set(hash, { data, mode, searchAvailable, completedAt: Date.now() });
+      ok(res, { mode, searchAvailable, data });
     } catch (err) {
       console.error(`[analyze error] ${err.message}`);
       const isAuth = /auth|oauth|login|unauthor|401|403/i.test(err.message);

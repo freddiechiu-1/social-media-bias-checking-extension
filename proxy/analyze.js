@@ -1,10 +1,10 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { MODE_CONFIG, buildSystemPrompt, buildUserPrompt } from './prompt.js';
+import { resolveModeConfig, buildSystemPrompt, buildUserPrompt } from './prompt.js';
 import { validate } from './validator.js';
 
 const REQUEST_TIMEOUT_MS = 180_000;
 
-export async function analyze(input, mode = 'standard') {
+export async function analyze(input, mode = 'standard', { searchOverride = false } = {}) {
   if (typeof input !== 'string' || !input.trim()) {
     throw new Error('input must be a non-empty string');
   }
@@ -14,7 +14,7 @@ export async function analyze(input, mode = 'standard') {
 
   let timeoutId;
   return Promise.race([
-    runAnalysis(input, mode).finally(() => clearTimeout(timeoutId)),
+    runAnalysis(input, mode, searchOverride).finally(() => clearTimeout(timeoutId)),
     new Promise((_, reject) => {
       timeoutId = setTimeout(
         () => reject(new Error(`analyze timed out after ${REQUEST_TIMEOUT_MS}ms`)),
@@ -24,18 +24,18 @@ export async function analyze(input, mode = 'standard') {
   ]);
 }
 
-async function runAnalysis(input, mode) {
-  const config = MODE_CONFIG[mode] || MODE_CONFIG.standard;
+async function runAnalysis(input, mode, searchOverride) {
+  const resolved = resolveModeConfig(mode, searchOverride);
   const prompt = buildUserPrompt(input);
 
   const events = [];
   for await (const event of query({
     prompt,
     options: {
-      systemPrompt: buildSystemPrompt(mode),
-      model: config.model,
-      maxTokens: config.maxTokens,
-      allowedTools: ['WebSearch'],
+      systemPrompt: buildSystemPrompt(mode, searchOverride),
+      model: resolved.config.model,
+      maxTokens: resolved.maxTokens,
+      allowedTools: resolved.tools,
     }
   })) {
     events.push(event);
