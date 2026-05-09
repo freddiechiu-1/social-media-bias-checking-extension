@@ -7,15 +7,18 @@
   </head>
   <body>
     <header>
+      <button id="popout" type="button" title="Open in a separate window" aria-label="Open in a separate window">⤢</button>
       <h1>ClaimCheck</h1>
       <p class="tagline">A footnote on what you're reading.</p>
     </header>
 
     <form id="form">
-      <textarea id="input" placeholder="Paste a tweet URL or the post text" rows="4"></textarea>
+      <textarea id="input" placeholder="Paste the tweet text (URLs may not load — X requires auth)" rows="4"></textarea>
       <button id="submit" type="submit">Analyze</button>
     </form>
 
+    <div id="url-hint" class="status hidden"></div>
+    <div id="inflight-banner" class="status hidden"></div>
     <div id="status" class="status hidden" aria-live="polite"></div>
 
     <main id="result" class="hidden">

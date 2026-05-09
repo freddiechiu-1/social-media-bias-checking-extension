@@ -94,3 +94,21 @@ header h1 {
 .source-link { display: block; font-size: 11px; margin: 2px 0; }
 .source-link a { color: #1a4a8a; text-decoration: none; }
 .source-link a:hover { text-decoration: underline; }
+
+header { position: relative; }
+
+#popout {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: transparent;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  color: #666;
+}
+#popout:hover { background: #f0f0f0; color: #1a1a1a; }
+
+.status.info { background: #e6f0ff; color: #1a3a8a; }

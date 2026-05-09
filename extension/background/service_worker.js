@@ -5,7 +5,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     handleAnalyze(msg.input)
       .then(data => sendResponse({ ok: true, data }))
       .catch(err => sendResponse({ ok: false, error: err.message || String(err) }));
-    return true; // keep channel open for async response
+    return true;
   }
 
   if (msg.type === 'getCachedResult') {
@@ -14,34 +14,46 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (msg.type === 'getInFlight') {
+    chrome.storage.session.get('inFlight').then(({ inFlight }) => {
+      sendResponse(inFlight || null);
+    });
+    return true;
+  }
 });
 
 async function handleAnalyze(input) {
   const requestedAt = Date.now();
-  let res;
+  await chrome.storage.session.set({ inFlight: { input, startedAt: requestedAt } });
   try {
-    res = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input })
-    });
-  } catch (netErr) {
-    throw new Error(`Couldn't reach the proxy at ${PROXY_URL}. Is it running? (${netErr.message})`);
-  }
-  if (!res.ok) {
-    let msg = `Proxy returned ${res.status}`;
+    let res;
     try {
-      const body = await res.json();
-      if (body && typeof body.error === 'string') msg = body.error;
-    } catch { /* response body not JSON; fall back to status */ }
-    throw new Error(msg);
+      res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input })
+      });
+    } catch (netErr) {
+      throw new Error(`Couldn't reach the proxy at ${PROXY_URL}. Is it running? (${netErr.message})`);
+    }
+    if (!res.ok) {
+      let msg = `Proxy returned ${res.status}`;
+      try {
+        const body = await res.json();
+        if (body && typeof body.error === 'string') msg = body.error;
+      } catch { /* response body not JSON; fall back to status */ }
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    if (!data || typeof data !== 'object' || !Array.isArray(data.claims)) {
+      throw new Error('Proxy returned unexpected response shape (missing claims array).');
+    }
+    await chrome.storage.session.set({
+      lastResult: { data, requestedAt, completedAt: Date.now(), input }
+    });
+    return data;
+  } finally {
+    await chrome.storage.session.remove('inFlight');
   }
-  const data = await res.json();
-  if (!data || typeof data !== 'object' || !Array.isArray(data.claims)) {
-    throw new Error('Proxy returned unexpected response shape (missing claims array).');
-  }
-  await chrome.storage.session.set({
-    lastResult: { data, requestedAt, completedAt: Date.now(), input }
-  });
-  return data;
 }
