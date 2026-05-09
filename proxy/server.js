@@ -2,13 +2,23 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { analyze } from './analyze.js';
+import { MODE_CONFIG } from './prompt.js';
 
 const PORT = 3001;
 const CACHE_TTL_MS = 5 * 60 * 1000;
-const cache = new Map(); // hash -> { data, completedAt }
+const cache = new Map(); // hash(input + ':' + mode) -> { data, mode, completedAt }
+
+function resolveMode(raw) {
+  if (typeof raw === 'string' && Object.prototype.hasOwnProperty.call(MODE_CONFIG, raw)) {
+    return { mode: raw, fellBack: false };
+  }
+  if (raw !== undefined) {
+    console.warn(`[mode] rejected invalid mode value ${JSON.stringify(raw)} — falling back to 'standard'`);
+  }
+  return { mode: 'standard', fellBack: raw !== undefined };
+}
 
 const server = http.createServer(async (req, res) => {
-  // CORS for chrome extensions and dev tools
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -44,21 +54,21 @@ const server = http.createServer(async (req, res) => {
       return badRequest(res, 'input must be a non-empty string');
     }
 
-    const hash = crypto.createHash('sha256').update(input).digest('hex');
+    const { mode } = resolveMode(parsed.mode);
+    const hash = crypto.createHash('sha256').update(`${input}:${mode}`).digest('hex');
     const cached = cache.get(hash);
     if (cached && Date.now() - cached.completedAt < CACHE_TTL_MS) {
-      console.log(`[cache hit] ${hash.slice(0, 8)}`);
-      return ok(res, cached.data);
+      console.log(`[cache hit] ${hash.slice(0, 8)} mode=${mode}`);
+      return ok(res, { mode: cached.mode, data: cached.data });
     }
 
-    console.log(`[analyze] ${hash.slice(0, 8)} ${input.slice(0, 60)}...`);
+    console.log(`[analyze] ${hash.slice(0, 8)} mode=${mode} ${input.slice(0, 60)}...`);
     try {
-      const data = await analyze(input);
-      cache.set(hash, { data, completedAt: Date.now() });
-      ok(res, data);
+      const data = await analyze(input, mode);
+      cache.set(hash, { data, mode, completedAt: Date.now() });
+      ok(res, { mode, data });
     } catch (err) {
       console.error(`[analyze error] ${err.message}`);
-      // Detect auth-style errors so the extension can show a friendlier message
       const isAuth = /auth|oauth|login|unauthor|401|403/i.test(err.message);
       serverError(res, isAuth
         ? `Authentication failed: ${err.message}. Try running 'claude login' again.`
@@ -80,10 +90,7 @@ function serverError(res, msg) {
   res.end(JSON.stringify({ error: msg }));
 }
 
-// Startup smoke: verify the SDK + OAuth path before accepting traffic.
-// Lightweight SDK ping — no web_search, tiny output. Fails fast if auth is stale.
 const STARTUP_TIMEOUT_MS = 30_000;
-
 async function startupCheck() {
   console.log('startup: pinging Claude to verify SDK + OAuth...');
   let timeoutId;
@@ -115,8 +122,6 @@ async function startupCheck() {
   }
 }
 
-// Run startup check BEFORE binding the port so a failed check doesn't leave a
-// half-bound port behind on force-quit.
 await startupCheck();
 
 server.listen(PORT, () => {
