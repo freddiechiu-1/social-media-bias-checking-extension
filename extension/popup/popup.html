@@ -2,15 +2,50 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <style>
-      body { font-family: system-ui; padding: 12px; width: 280px; }
-      button { padding: 6px 12px; }
-      pre { white-space: pre-wrap; font-size: 11px; background: #f4f4f4; padding: 8px; border-radius: 4px; }
-    </style>
+    <link rel="stylesheet" href="popup.css" />
+    <title>ClaimCheck</title>
   </head>
   <body>
-    <button id="test">Test localhost</button>
-    <pre id="out"></pre>
-    <script src="popup.js"></script>
+    <header>
+      <h1>ClaimCheck</h1>
+      <p class="tagline">A footnote on what you're reading.</p>
+    </header>
+
+    <form id="form">
+      <textarea id="input" placeholder="Paste a tweet URL or the post text" rows="4"></textarea>
+      <button id="submit" type="submit">Analyze</button>
+    </form>
+
+    <div id="status" class="status hidden"></div>
+
+    <main id="result" class="hidden">
+      <section class="card" data-key="tldr">
+        <h2>TL;DR</h2>
+        <div class="content"></div>
+      </section>
+      <section class="card" data-key="claims">
+        <h2>What it's claiming</h2>
+        <div class="content"></div>
+      </section>
+      <section class="card" data-key="evidence">
+        <h2>What we found</h2>
+        <div class="content"></div>
+      </section>
+      <section class="card" data-key="steelman">
+        <h2>Strongest disagreement</h2>
+        <div class="content"></div>
+      </section>
+      <section class="card" data-key="couldnt_verify">
+        <h2>What we couldn't verify</h2>
+        <div class="content"></div>
+      </section>
+      <section class="card" data-key="how_to_verify">
+        <h2>How you'd verify yourself</h2>
+        <div class="content"></div>
+      </section>
+    </main>
+
+    <script src="render.js" type="module"></script>
+    <script src="popup.js" type="module"></script>
   </body>
 </html>

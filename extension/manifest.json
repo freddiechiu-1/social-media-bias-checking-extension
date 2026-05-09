@@ -1,13 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "ClaimCheck (spike)",
-  "version": "0.0.1",
-  "description": "Phase 0 spike — verifying localhost connectivity. Replaced by real manifest in Task 1A.1.",
+  "name": "ClaimCheck",
+  "version": "0.1.0",
+  "description": "Critical-thinking aid for social media posts. Pastes in, exposes patterns, lets you judge.",
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_popup": "popup/popup.html",
+    "default_title": "ClaimCheck"
+  },
+  "background": {
+    "service_worker": "background/service_worker.js",
+    "type": "module"
   },
   "host_permissions": [
-    "http://localhost:9999/*",
-    "http://localhost:3001/*"
+    "http://localhost:3001/*",
+    "http://localhost:9999/*"
   ]
 }

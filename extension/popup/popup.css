@@ -1,0 +1,96 @@
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  width: 380px;
+  max-height: 600px;
+  margin: 0;
+  padding: 14px;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
+header h1 {
+  margin: 0 0 2px 0;
+  font-size: 18px;
+}
+
+.tagline {
+  margin: 0 0 12px 0;
+  color: #666;
+  font-size: 11px;
+}
+
+#form { margin-bottom: 12px; }
+
+#input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+#submit {
+  margin-top: 8px;
+  padding: 8px 14px;
+  background: #1a1a1a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+#submit:disabled { opacity: 0.5; cursor: wait; }
+
+.status {
+  padding: 10px;
+  background: #f4f4f4;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.status.error { background: #fde2e2; color: #8a1a1a; }
+
+.hidden { display: none; }
+
+.card {
+  margin-bottom: 14px;
+  padding: 10px;
+  background: #fafafa;
+  border-radius: 4px;
+}
+
+.card h2 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.card .content {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.card .empty { color: #999; font-style: italic; }
+
+.claim-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 4px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.claim-tag.factual { background: #e0f0e0; color: #225522; }
+.claim-tag.opinion { background: #fff0d8; color: #8a5a00; }
+.claim-tag.mixed { background: #e8e0f8; color: #4a2080; }
+
+.source-link { display: block; font-size: 11px; margin: 2px 0; }
+.source-link a { color: #1a4a8a; text-decoration: none; }
+.source-link a:hover { text-decoration: underline; }
