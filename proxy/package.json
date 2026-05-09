@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node server.js",
     "test-prompt": "node test_prompt.js",
-    "spike": "node spike.js",
     "test": "mocha validator.test.js"
   },
   "engines": {
