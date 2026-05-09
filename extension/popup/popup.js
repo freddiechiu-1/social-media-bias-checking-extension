@@ -17,6 +17,11 @@ const TWEET_URL_RE = /^https?:\/\/(www\.)?(x|twitter)\.com\/[^\s]+$/i;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const STALE_INFLIGHT_MS = 5 * 60 * 1000;
 const VALID_MODES = ['quick', 'standard', 'deep'];
+const NO_SEARCH_MODES = new Set(['quick']);
+
+function willSearchRun(mode, searchOverride) {
+  return !!searchOverride || !NO_SEARCH_MODES.has(mode);
+}
 
 // Module-level mode state — single source of truth (see spec §7).
 let currentMode = 'standard';
@@ -68,7 +73,7 @@ document.getElementById('inflight-cancel').addEventListener('click', async () =>
 searchBtn.addEventListener('click', async () => {
   if (!lastAnalyzedInput) return;
   hideSearchCta();
-  setLoading(true);
+  setLoading(true, { withSearch: true });
   clear();
   resultEl.classList.add('hidden');
 
@@ -132,7 +137,7 @@ form.addEventListener('submit', async (e) => {
     showUrlHint('Heads up: tweet URLs often fail to load (X requires auth). Pasting the tweet text usually works better. Trying anyway…');
   }
 
-  setLoading(true);
+  setLoading(true, { withSearch: willSearchRun(currentMode, false) });
   clear();
   resultEl.classList.add('hidden');
 
@@ -149,11 +154,13 @@ form.addEventListener('submit', async (e) => {
   showResult(response.data, response.searchAvailable);
 });
 
-function setLoading(on) {
+function setLoading(on, { withSearch = true } = {}) {
   submitBtn.disabled = on;
   searchBtn.disabled = on;
   if (on) {
-    statusEl.textContent = 'Analyzing… web search can take 30–90 seconds.';
+    statusEl.textContent = withSearch
+      ? 'Analyzing with web search… ~30–90 seconds.'
+      : 'Extracting claims… ~10 seconds.';
     statusEl.classList.remove('hidden', 'error');
   } else {
     statusEl.classList.add('hidden');
