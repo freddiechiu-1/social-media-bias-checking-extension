@@ -1,0 +1,18 @@
+{
+  "name": "claim-check-proxy",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Local proxy for the ClaimCheck Chrome extension. Authenticates to Claude via Max OAuth (Claude Agent SDK), calls Claude with the web_search tool, validates the output (no-verdict gate + schema enforcement), returns structured JSON.",
+  "scripts": {
+    "start": "node server.js",
+    "test-prompt": "node test_prompt.js",
+    "spike": "node spike.js",
+    "test": "mocha validator.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.138"
+  }
+}
