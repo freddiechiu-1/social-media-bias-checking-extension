@@ -13,8 +13,14 @@ const inflightEl = document.getElementById('inflight-banner');
 
 const TWEET_URL_RE = /^https?:\/\/(www\.)?(x|twitter)\.com\/[^\s]+$/i;
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const STALE_INFLIGHT_MS = 5 * 60 * 1000;
+const VALID_MODES = ['quick', 'standard', 'deep'];
 
-// Hide pop-out button when already in a detached window (no recursion).
+// Module-level mode state — single source of truth (see spec §7).
+// Initialized from storage in the on-open IIFE; updated synchronously on pill click.
+let currentMode = 'standard';
+
+// ---------- Pop-out button ----------
 if (isDetached) {
   popoutBtn?.classList.add('hidden');
 } else {
@@ -29,19 +35,47 @@ if (isDetached) {
   });
 }
 
+// ---------- Mode pill controls ----------
+function applyModeUI(mode) {
+  document.querySelectorAll('.mode-pill').forEach(btn => {
+    const isSelected = btn.dataset.mode === mode;
+    btn.classList.toggle('is-selected', isSelected);
+    btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+  });
+}
+
+document.querySelectorAll('.mode-pill').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const mode = btn.dataset.mode;
+    if (!VALID_MODES.includes(mode)) return;
+    currentMode = mode;
+    applyModeUI(mode);
+    // Persist; fire-and-forget. Storage write is not on the submit critical path.
+    chrome.storage.local.set({ mode }).catch(() => {});
+  });
+});
+
+// ---------- Inflight cancel button ----------
 document.getElementById('inflight-cancel').addEventListener('click', async () => {
   await chrome.runtime.sendMessage({ type: 'cancel' });
   hideInFlight();
 });
 
-// On open: restore cached result OR show in-flight banner.
-const STALE_INFLIGHT_MS = 5 * 60 * 1000; // 5 min — longer than proxy's 180s timeout + slack
-
+// ---------- On-open: load mode + restore cached/in-flight state ----------
 (async () => {
-  let inFlight = await chrome.runtime.sendMessage({ type: 'getInFlight' });
+  // Load persisted mode (if any) and reflect in UI without flashing wrong pill.
+  // The HTML defaults to `standard` selected; we update only if a different valid mode is stored.
+  try {
+    const { mode: storedMode } = await chrome.storage.local.get('mode');
+    if (typeof storedMode === 'string' && VALID_MODES.includes(storedMode)) {
+      currentMode = storedMode;
+      if (storedMode !== 'standard') applyModeUI(storedMode);
+    }
+  } catch { /* storage failed — keep default 'standard' */ }
 
   // Stale-detection: if the marker is older than the proxy could reasonably take,
   // the worker that owned it is dead. Clear and treat as no-in-flight.
+  let inFlight = await chrome.runtime.sendMessage({ type: 'getInFlight' });
   if (inFlight && Date.now() - inFlight.startedAt > STALE_INFLIGHT_MS) {
     await chrome.runtime.sendMessage({ type: 'cancel' });
     inFlight = null;
@@ -61,6 +95,7 @@ const STALE_INFLIGHT_MS = 5 * 60 * 1000; // 5 min — longer than proxy's 180s t
   }
 })();
 
+// ---------- Submit ----------
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const text = input.value.trim();
@@ -75,7 +110,8 @@ form.addEventListener('submit', async (e) => {
   clear();
   resultEl.classList.add('hidden');
 
-  const response = await chrome.runtime.sendMessage({ type: 'analyze', input: text });
+  // Submit reads mode from the in-memory variable (synchronously up-to-date with last pill click).
+  const response = await chrome.runtime.sendMessage({ type: 'analyze', input: text, mode: currentMode });
 
   setLoading(false);
 
@@ -139,15 +175,12 @@ function setupInFlightListener() {
     if (area !== 'session') return;
     if ('lastResult' in changes && changes.lastResult.newValue) {
       const cached = changes.lastResult.newValue;
-      // Only render if the change is for this input
       if (cached.input === input.value) {
         showResult(cached.data);
         chrome.storage.onChanged.removeListener(handler);
       }
     }
     if ('inFlight' in changes && !changes.inFlight.newValue) {
-      // inFlight cleared without lastResult => an error happened in the worker
-      // Wait briefly for lastResult to settle, otherwise surface a generic message
       setTimeout(async () => {
         const finalCheck = await chrome.runtime.sendMessage({ type: 'getCachedResult' });
         if (!finalCheck || finalCheck.input !== input.value) {
