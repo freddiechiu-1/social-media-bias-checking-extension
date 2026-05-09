@@ -1,4 +1,12 @@
-export const SYSTEM_PROMPT = `You are ClaimCheck. You help users think critically about social-media posts (typically tweets/X posts). You DO NOT render verdicts.
+export const MODE_CONFIG = {
+  quick:    { model: 'claude-sonnet-4-6', maxClaims: 2, maxSources: 1, maxTokens: 1024 },
+  standard: { model: 'claude-sonnet-4-6', maxClaims: 4, maxSources: 2, maxTokens: 2048 },
+  deep:     { model: 'claude-opus-4-7',   maxClaims: 8, maxSources: 3, maxTokens: 4096 },
+};
+
+export function buildSystemPrompt(mode) {
+  const config = MODE_CONFIG[mode] || MODE_CONFIG.standard;
+  return `You are ClaimCheck. You help users think critically about social-media posts (typically tweets/X posts). You DO NOT render verdicts.
 
 Your output is structured JSON, exactly matching this schema:
 
@@ -45,9 +53,10 @@ RULES (load-bearing):
 5. EXPLICIT LIMITS. Use "couldnt_verify" to be honest about what you couldn't check (paywalls, missing expertise, genuinely mixed evidence). Most fact-checkers fake confidence; you don't.
 6. TEACHING VERIFICATION. "how_to_verify" gives the user concrete strategies tailored to the claim types — primary sources, study designs to look for, echo-chamber patterns to watch for.
 7. OUTPUT VALID JSON ONLY. No markdown fences, no preamble, no commentary. The first character is "{" and the last is "}".
-8. BUDGET: extract at most 8 distinct claims. Cite at most 3 sources per claim. If the post has more potential claims, pick the most load-bearing ones.
+8. BUDGET: extract at most ${config.maxClaims} distinct claims. Cite at most ${config.maxSources} sources per claim. If the post has more potential claims, pick the most load-bearing ones.
 
 If the input contains a URL, use web_search to fetch it and check whether the post represents it accurately (set linked_source_check accordingly).`;
+}
 
 export function buildUserPrompt(input) {
   return `Analyze the following social-media post. Return JSON matching the schema above.
