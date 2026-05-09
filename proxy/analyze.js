@@ -2,7 +2,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { SYSTEM_PROMPT, buildUserPrompt } from './prompt.js';
 import { validate } from './validator.js';
 
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 180_000;
 
 export async function analyze(input) {
   if (typeof input !== 'string' || !input.trim()) {
